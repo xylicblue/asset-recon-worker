@@ -1,4 +1,5 @@
 .env
+railway.env
 node_modules/
 dist/
 coverage/

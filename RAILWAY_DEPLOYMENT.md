@@ -30,6 +30,7 @@ Required values are:
 
 - `PRIMARY_RPC_URL`
 - `SECONDARY_RPC_URL`
+- `ALLOW_SAME_RPC_URL` (set to `true` only when intentionally using one endpoint)
 - `CHAIN_ID`
 - `COLLATERAL_VAULT_ADDRESS`
 - `DEPLOYMENT_BLOCK`
@@ -39,7 +40,7 @@ Required values are:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `MANUAL_RUN_TOKEN`
 
-The two RPC URLs must be archive-capable endpoints from independent providers. Store the Supabase service-role key and manual-run token as secrets. Alert webhook variables are optional but strongly recommended for production.
+The two RPC URLs should be archive-capable endpoints from independent providers. If only one endpoint is available, set both URL variables to it and set `ALLOW_SAME_RPC_URL=true`. The worker will start, but the second read is no longer independent and a startup warning will be logged. Store the Supabase service-role key and manual-run token as secrets. Alert webhook variables are optional but strongly recommended for production.
 
 ## 4. Verify the deployment
 

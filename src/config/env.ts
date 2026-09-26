@@ -4,10 +4,12 @@ import { z } from "zod";
 import type { Address, RelatedAccountConfig, TokenConfig } from "../types.js";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+const booleanFromEnv = z.enum(["true", "false"]).default("false").transform((value) => value === "true");
 
 const schema = z.object({
   PRIMARY_RPC_URL: z.string().url(),
   SECONDARY_RPC_URL: z.string().url(),
+  ALLOW_SAME_RPC_URL: booleanFromEnv,
   CHAIN_ID: z.coerce.number().int().positive(),
   COLLATERAL_VAULT_ADDRESS: address,
   DEPLOYMENT_BLOCK: z.coerce.number().int().nonnegative(),
@@ -52,7 +54,7 @@ function parseRelatedAccounts(value: string): RelatedAccountConfig[] {
     .map((entry) => ({ ...entry, address: entry.address.toLowerCase() as Address }));
 }
 
-if (parsed.data.PRIMARY_RPC_URL === parsed.data.SECONDARY_RPC_URL) {
+if (parsed.data.PRIMARY_RPC_URL === parsed.data.SECONDARY_RPC_URL && !parsed.data.ALLOW_SAME_RPC_URL) {
   throw new Error("PRIMARY_RPC_URL and SECONDARY_RPC_URL must use independent endpoints");
 }
 

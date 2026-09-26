@@ -16,6 +16,9 @@ export class AssetReconciliationWorker {
   private stopping = false;
 
   async start(): Promise<void> {
+    if (env.PRIMARY_RPC_URL === env.SECONDARY_RPC_URL) {
+      logger.warn("Primary and secondary RPC URLs are identical; independent RPC verification is disabled");
+    }
     await assertChainConfiguration();
     await this.renewLease();
     this.health.ready = true;
