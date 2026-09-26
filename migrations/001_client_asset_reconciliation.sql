@@ -353,6 +353,7 @@ declare
   result_id uuid;
   overall_status text := 'passed';
   exception_code text;
+  exception_difference numeric(78,0);
   exception_list jsonb := '[]'::jsonb;
   severity text;
   v_control_date date;
@@ -397,8 +398,16 @@ begin
     if result_id is not null then
       for exception_code in select jsonb_array_elements_text(item -> 'exception_codes') loop
         severity := case when exception_code = 'CLIENT_ASSET_DEFICIT' then 'critical' else 'high' end;
+        exception_difference := case exception_code
+          when 'CLIENT_ASSET_DEFICIT' then (item ->> 'asset_difference_raw')::numeric
+          when 'UNEXPLAINED_VAULT_SURPLUS' then (item ->> 'asset_difference_raw')::numeric
+          when 'INDEXER_LEDGER_MISMATCH' then (item ->> 'indexer_difference_raw')::numeric
+          when 'RPC_ASSET_MISMATCH' then (item ->> 'rpc_asset_difference_raw')::numeric
+          when 'RPC_LEDGER_MISMATCH' then (item ->> 'rpc_liability_difference_raw')::numeric
+          else 0
+        end;
         insert into public.asset_reconciliation_exceptions(run_id, token_result_id, code, severity, difference_raw, remediation_due_at)
-        values (run_record.id, result_id, exception_code, severity, (item ->> 'asset_difference_raw')::numeric,
+        values (run_record.id, result_id, exception_code, severity, exception_difference,
                 case when severity = 'critical' then now() + interval '2 hours' else null end)
         on conflict do nothing;
         exception_list := exception_list || jsonb_build_array(jsonb_build_object('code', exception_code, 'token', item ->> 'token_symbol', 'severity', severity));
@@ -505,7 +514,7 @@ $$;
 
 create or replace function public.admin_sign_asset_reconciliation_attestation(p_attestation_id uuid, p_attestation_text text)
 returns void language plpgsql security definer set search_path = '' as $$
-declare attestation public.asset_reconciliation_monthly_attestations%rowtype; incomplete integer; unresolved integer; approved_days integer; expected_days integer; summary jsonb;
+declare attestation public.asset_reconciliation_monthly_attestations%rowtype; incomplete integer; unresolved integer; approved_days integer; expected_days integer; v_summary jsonb;
 begin
   perform public.require_asset_reconciliation_admin('compliance_risk');
   select * into attestation from public.asset_reconciliation_monthly_attestations where id = p_attestation_id and status = 'pending' for update;
@@ -516,12 +525,12 @@ begin
   expected_days := attestation.period_end - attestation.period_start;
   select count(*) into unresolved from public.asset_reconciliation_exceptions e join public.asset_reconciliation_runs r on r.id = e.run_id where r.block_timestamp >= attestation.period_start and r.block_timestamp < attestation.period_end and e.status <> 'resolved';
   if incomplete > 0 or unresolved > 0 or approved_days <> expected_days then raise exception 'Cannot sign: % of % daily reviews approved, % incomplete records and % exceptions unresolved', approved_days, expected_days, incomplete, unresolved using errcode = '23514'; end if;
-  select jsonb_build_object('run_count', count(distinct r.id), 'token_result_count', count(tr.id), 'minimum_coverage_bps', min(tr.coverage_bps), 'exception_run_count', count(distinct r.id) filter (where r.status = 'exception')) into summary
+  select jsonb_build_object('run_count', count(distinct r.id), 'token_result_count', count(tr.id), 'minimum_coverage_bps', min(tr.coverage_bps), 'exception_run_count', count(distinct r.id) filter (where r.status = 'exception')) into v_summary
   from public.asset_reconciliation_runs r join public.asset_reconciliation_token_results tr on tr.run_id = r.id
   where r.block_timestamp >= attestation.period_start and r.block_timestamp < attestation.period_end;
-  update public.asset_reconciliation_monthly_attestations set status = 'signed', summary = summary, attestation_text = btrim(p_attestation_text), signed_by = auth.uid(), signed_at = now(), updated_at = now() where id = p_attestation_id;
+  update public.asset_reconciliation_monthly_attestations set status = 'signed', summary = v_summary, attestation_text = btrim(p_attestation_text), signed_by = auth.uid(), signed_at = now(), updated_at = now() where id = p_attestation_id;
   insert into public.asset_reconciliation_actions(action_type, subject_type, subject_id, actor_id, details)
-  values ('monthly_attestation_signed', 'monthly_attestation', p_attestation_id, auth.uid(), summary);
+  values ('monthly_attestation_signed', 'monthly_attestation', p_attestation_id, auth.uid(), v_summary);
 end;
 $$;
 

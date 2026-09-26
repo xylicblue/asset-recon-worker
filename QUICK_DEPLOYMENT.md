@@ -37,7 +37,7 @@ Never provide a blockchain private key to this service.
 
 ## 3. Build and start
 
-Use Node.js 20 or later:
+Use Node.js 22.12 or later:
 
 ```bash
 npm ci

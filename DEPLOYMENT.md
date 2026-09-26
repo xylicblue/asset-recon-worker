@@ -16,7 +16,7 @@ values
 
 ## 2. Configure the service
 
-Deploy this directory with Node.js 20+ or the included Dockerfile. Copy every value from `.env.example` into the hosting provider's secret/environment settings.
+Deploy this directory with Node.js 22.12+ or the included Dockerfile. Copy every value from `.env.example` into the hosting provider's secret/environment settings.
 
 Before starting, confirm:
 
@@ -60,3 +60,5 @@ curl -X POST https://RECONCILIATION_SERVICE/runs \
 Rebuild and deploy the `overhaul` frontend. No additional frontend environment variable is required. Administrators need AAL2 and an assigned reconciliation role to perform controlled actions.
 
 Do not enable production reliance until the deployment block, token universe, two independent RPCs and first passing run have been independently checked.
+
+For Railway-specific service settings and verification steps, see [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md).
